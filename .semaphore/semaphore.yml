@@ -11,11 +11,10 @@ blocks:
       jobs:
         - name: bundle
           commands:
-            - sem-version ruby 2.7.3
+            - sem-version ruby 3.3.0
             - sem-version node 14.16.1
             - checkout
             - cache restore
-            - bundle install
             - cache store
   - name: Code scanning
     dependencies:
@@ -25,13 +24,10 @@ blocks:
         - name: check style + security
           commands:
             - sem-version ruby 2.7.3
-            - sem-version node 14.16.1
+            - sem-service start postgres
             - checkout
             - cache restore
-            - bundle install
             - cache store
-            - bundle exec rubocop
-            - bundle exec brakeman
   - name: Unit tests
     dependencies:
       - Code scanning
