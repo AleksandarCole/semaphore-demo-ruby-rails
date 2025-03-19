@@ -62,7 +62,6 @@ blocks:
           - apt-get install -y nodejs
           - bundle install
           - cache store
-          - sem-service start postgres
           - 'bundle exec rake db:setup'
       jobs:
         - name: RSpec - model tests
@@ -91,7 +90,6 @@ blocks:
       jobs:
         - name: RSpec - feature specs
           commands:
-            - sem-service start postgres
             - 'bundle exec rake db:setup'
             - bundle exec rspec spec/features
       epilogue:
