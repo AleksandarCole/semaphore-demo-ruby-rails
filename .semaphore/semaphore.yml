@@ -1,5 +1,5 @@
 version: v1.0
-name: "\U0001F4AB Elixir Insight ETL - CI Pipeline"
+name: "\U0001F4EB Elixir Insight ETL - CI Pipeline"
 agent:
   machine:
     type: s1-kubernetes
@@ -7,8 +7,6 @@ agent:
   containers:
     - name: main
       image: 'ruby:2.7.3'
-    - name: node
-      image: 'node:20'
     - name: postgres
       image: 'postgres:17'
       env_vars:
@@ -33,6 +31,9 @@ blocks:
           commands:
             - checkout
             - cache restore
+            - apt-get update && apt-get install -y curl
+            - 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
+            - apt-get install -y nodejs
             - bundle install
             - cache store
   - name: Code scanning
@@ -56,6 +57,9 @@ blocks:
         commands:
           - checkout
           - cache restore
+          - apt-get update && apt-get install -y curl
+          - 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
+          - apt-get install -y nodejs
           - bundle install
           - cache store
           - sem-service start postgres
@@ -79,6 +83,9 @@ blocks:
         commands:
           - checkout
           - cache restore
+          - apt-get update && apt-get install -y curl
+          - 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
+          - apt-get install -y nodejs
           - bundle install
           - cache store
       jobs:
