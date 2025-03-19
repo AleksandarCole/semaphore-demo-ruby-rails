@@ -1,12 +1,12 @@
 version: v1.0
-name: "\U0001F4EB Elixir Insight ETL - CI Pipeline"
+name: "\U0001F48E Ruby CI Pipeline"
 agent:
   machine:
     type: s1-kubernetes
     os_image: ''
   containers:
     - name: main
-      image: 'ruby:2.7.3'
+      image: 'ruby:3.4.2'
     - name: postgres
       image: 'postgres:17'
       env_vars:
@@ -23,7 +23,7 @@ auto_cancel:
   queued:
     when: branch = 'master'
 blocks:
-  - name: Setup
+  - name: ⚙️ Setup
     dependencies: []
     task:
       jobs:
@@ -31,14 +31,11 @@ blocks:
           commands:
             - checkout
             - cache restore
-            - apt-get update && apt-get install -y curl
-            - 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
-            - apt-get install -y nodejs
             - bundle install
             - cache store
-  - name: Code scanning
+  - name: "\U0001F50D Code scanning"
     dependencies:
-      - Setup
+      - ⚙️ Setup
     task:
       jobs:
         - name: check style + security
@@ -49,17 +46,14 @@ blocks:
             - cache store
             - bundle exec rubocop
             - bundle exec brakeman
-  - name: Unit tests
+  - name: "\U0001F9EA Unit tests"
     dependencies:
-      - Code scanning
+      - "\U0001F50D Code scanning"
     task:
       prologue:
         commands:
           - checkout
           - cache restore
-          - apt-get update && apt-get install -y curl
-          - 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
-          - apt-get install -y nodejs
           - bundle install
           - cache store
           - 'bundle exec rake db:setup'
@@ -74,17 +68,14 @@ blocks:
         always:
           commands:
             - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Unit tests\" junit.xml"
-  - name: Integration tests
+  - name: "\U0001F3D7️ Integration tests"
     dependencies:
-      - Unit tests
+      - "\U0001F9EA Unit tests"
     task:
       prologue:
         commands:
           - checkout
           - cache restore
-          - apt-get update && apt-get install -y curl
-          - 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
-          - apt-get install -y nodejs
           - bundle install
           - cache store
       jobs:
@@ -95,10 +86,4 @@ blocks:
       epilogue:
         always:
           commands:
-            - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F3D7️ Integration tests\" junit.xml"
-after_pipeline:
-  task:
-    jobs:
-      - name: Publish Results
-        commands:
-          - test-results gen-pipeline-report
+            - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Unit tests\" junit.xml"
