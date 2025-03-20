@@ -1,5 +1,5 @@
 version: v1.0
-name: "\U0001F48E Ruby CI Pipeline"
+name: "\U0001F40D Django CI Pipeline (Docker)"
 agent:
   machine:
     type: s1-kubernetes
@@ -86,4 +86,4 @@ blocks:
       epilogue:
         always:
           commands:
-            - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Unit tests\" junit.xml"
+            - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Integration tests\" junit.xml"
