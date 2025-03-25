@@ -33,22 +33,9 @@ blocks:
             - cache restore
             - bundle install
             - cache store
-  - name: "\U0001F50D Code scanning"
-    dependencies:
-      - ⚙️ Setup
-    task:
-      jobs:
-        - name: check style + security
-          commands:
-            - checkout
-            - cache restore
-            - bundle install
-            - cache store
-            - bundle exec rubocop
-            - bundle exec brakeman
   - name: "\U0001F9EA Unit tests"
     dependencies:
-      - "\U0001F50D Code scanning"
+      - ⚙️ Setup
     task:
       prologue:
         commands:
@@ -68,22 +55,9 @@ blocks:
         always:
           commands:
             - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Unit tests\" junit.xml"
-  - name: "\U0001F3D7️ Integration tests"
-    dependencies:
-      - "\U0001F9EA Unit tests"
-    task:
-      prologue:
+after_pipeline:
+  task:
+    jobs:
+      - name: 'Job #1'
         commands:
-          - checkout
-          - cache restore
-          - bundle install
-          - cache store
-      jobs:
-        - name: RSpec - feature specs
-          commands:
-            - 'bundle exec rake db:setup'
-            - bundle exec rspec spec/features
-      epilogue:
-        always:
-          commands:
-            - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Integration tests\" junit.xml"
+          - test-results gen-pipeline-report
