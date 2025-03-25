@@ -1,97 +1,111 @@
-version: v1.0
-name: "🐍 Django CI Pipeline (Docker)"
+# Semaphore CI/CD configuration for Ruby project
+# This file defines the complete CI/CD pipeline for a Ruby application
+# For more information about Semaphore configuration visit:
+# https://docs.semaphoreci.com/reference/pipeline-yaml-reference/
 
+# Version and name of the pipeline
+version: v1.0
+name: "💎 Ruby CI Pipeline"
+
+# Agent configuration - defines the execution environment
 agent:
   machine:
-    type: s1-kubernetes
+    type: s1-kubernetes  # Will be replaced with actual machine type from environment variables
     os_image: ''  # Empty for Docker compose style pipeline
-
   containers:
-  - name: main
-    image: 'registry.semaphoreci.com/python:3.8-node-browsers'
-    user: root # Explicitly run as root
-  - name: mysql
-    image: 'registry.semaphoreci.com/mysql:8.0'
-    env_vars:
-      - name: MYSQL_ROOT_PASSWORD
-        value: root
+    - name: main
+      image: 'ruby:3.4.2'  # Using Ruby 3.4.2 as the main container
+    - name: postgres
+      image: 'postgres:17'  # PostgreSQL 17 container for database
+      env_vars:
+        - name: POSTGRES_PASSWORD
+          value: postgres  # Setting PostgreSQL password
+        - name: POSTGRES_DB
+          value: myapp_test  # Test database name
 
+# Controls if the pipeline should stop on failure for non-master branches
 fail_fast:
   stop:
-    when: branch != 'master' # Stop execution early for non-master branches
+    when: branch != 'master'  # Stop all jobs if any job fails on branches other than master
 
+# Defines auto-cancellation behavior for running and queued pipelines
 auto_cancel:
   running:
-    when: branch != 'master' # Auto-cancel running pipelines on non-master branches
+    when: branch != 'master'  # Cancel running pipelines when a new commit is pushed (except on master)
   queued:
-    when: branch = 'master' # Auto-cancel queued pipelines for master branch
+    when: branch = 'master'  # Cancel queued pipelines for master branch when a new commit is pushed
 
-global_job_config:
-  prologue:
-    commands:
-      - checkout # Fetch the latest code from the repository
-      - pip install -r requirements.txt --cache-dir .pip_cache # Install project dependencies
-      - cache restore # Restore cached dependencies
-
+# Pipeline blocks (stages) definition
 blocks:
-  - name: "🛠️ Install Dependencies"
-    dependencies: [] # No dependencies; runs at the start
+  # Setup block - installs and caches dependencies
+  - name: ⚙️ Setup
+    dependencies: []  # No dependencies, runs first
     task:
       jobs:
-        - name: "📦 Install Python Dependencies"
+        - name: bundle
           commands:
-            # Try multiple strategies to overcome apt-get lock issues
-            - sudo rm -f /var/lib/apt/lists/lock
-            - sudo rm -f /var/cache/apt/archives/lock
-            - sudo rm -f /var/lib/dpkg/lock*
-            - sudo apt-get clean
-            - sudo apt-get update -y
-            - sudo apt-get install -y python3-dev
-            - sudo apt-get install -y default-libmysqlclient-dev
-            - pip download --cache-dir .pip_cache -r requirements.txt
-            - pip install pylint pylint-django # Install Pylint and Django plugin
-            - cache store
+            - checkout  # Clone the repository
+            - cache restore  # Restore cached dependencies from previous runs
+            - bundle install  # Install Ruby gems
+            - cache store  # Store dependencies in cache for future runs
 
-  - name: "🔍 Run Code Analysis"
-    dependencies: 
-      - "🛠️ Install Dependencies" # Ensure dependencies are installed
-    task:
-      jobs:
-        - name: "🛡️ Pylint Analysis"
-          commands:
-            - pylint $(git ls-files | grep -v 'migrations' | grep -v 'settings.py' | grep -v 'manage.py' | grep -E '.py$') -E --load-plugins=pylint_django
-
-  - name: "🧪 Run Unit Tests"
+  # Code scanning block - runs static analysis tools
+  - name: "\U0001F50D Code scanning"
     dependencies:
-      - "🛠️ Install Dependencies" # Ensure dependencies are installed
+      - ⚙️ Setup  # Depends on setup block
     task:
       jobs:
-        - name: "🔎 Test Models"
+        - name: check style + security
           commands:
-            - python manage.py test tasks.tests.test_models
+            - checkout  # Clone the repository
+            - cache restore  # Restore cached dependencies
+            - bundle install  # Install Ruby gems
+            - cache store  # Store dependencies in cache
+            - bundle exec rubocop  # Run Ruby style checker
+            - bundle exec brakeman  # Run security scanner for Rails applications
 
-        - name: "🔎 Test Views"
-          commands:
-            - python manage.py test tasks.tests.test_views
-
-  - name: "🌐 Run Browser Tests"
+  # Unit tests block - runs model and controller tests
+  - name: "\U0001F9EA Unit tests"
     dependencies:
-      - "🧪 Run Unit Tests" # Ensure unit tests pass first
+      - "\U0001F50D Code scanning"  # Depends on code scanning passing
     task:
-      env_vars:
-        - name: DB_NAME
-          value: pydjango # Database name for testing
+      prologue:
+        commands:
+          - checkout  # Clone the repository
+          - cache restore  # Restore cached dependencies
+          - bundle install  # Install Ruby gems
+          - cache store  # Store dependencies in cache
+          - 'bundle exec rake db:setup'  # Set up database for tests
       jobs:
-        - name: "🎭 Browser Tests"
+        - name: RSpec - model tests
           commands:
-            - mysql --host=mysql -uroot -proot -e "create database $DB_NAME"
-            - 'nohup python manage.py runserver 0.0.0.0:8000 &'
-            - python manage.py test tasks.tests.test_browser
+            - bundle exec rspec spec/models  # Run RSpec tests for models
 
-  - name: "🔐 Run Security Tests"
-    dependencies: [] # Runs independently in parallel
-    task:
-      jobs:
-        - name: "✅ Deployment Checklist"
+        - name: RSpec - controller tests
           commands:
-            - python manage.py check --deploy --fail-level ERROR
+            - bundle exec rspec spec/controllers  # Run RSpec tests for controllers
+      epilogue:
+        always:
+          commands:
+            - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Unit tests\" junit.xml"  # Publish test results if JUnit XML exists
+
+  # Integration tests block - runs feature specs
+  - name: "\U0001F3D7️ Integration tests"
+    dependencies:
+      - "\U0001F9EA Unit tests"  # Depends on unit tests passing
+    task:
+      prologue:
+        commands:
+          - checkout  # Clone the repository
+          - cache restore  # Restore cached dependencies
+          - bundle install  # Install Ruby gems
+          - cache store  # Store dependencies in cache
+      jobs:
+        - name: RSpec - feature specs
+          commands:
+            - 'bundle exec rake db:setup'  # Set up database for tests
+            - bundle exec rspec spec/features  # Run RSpec feature/integration tests
+      epilogue:
+        always:
+          commands:
+            - "[[ -f junit.xml ]] && test-results publish --name \"\U0001F9EA Integration tests\" junit.xml"  # Publish test results if JUnit XML exists
